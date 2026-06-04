@@ -1,0 +1,23 @@
+{
+  "name": "infrastructure",
+  "version": "1.0.0",
+  "description": "Week 4 CKB infrastructure exercises: RPC dashboard, full node, and light client",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run all",
+    "all": "npm run exercise:14 && npm run exercise:15 && npm run exercise:16",
+    "exercise:14": "node --experimental-strip-types 14-rpc-dashboard.ts",
+    "exercise:15": "node --experimental-strip-types 15-full-node.ts",
+    "exercise:16": "node --experimental-strip-types 16-light-client.ts",
+    "test": "npm run all"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@ckb-ccc/core": "^1.12.5",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}

@@ -58,6 +58,42 @@ The exercise entry points are:
 
 The reference Rust contracts for the hash lock (Lesson 8) and counter type script (Lesson 10) live under `week2/scripts/contracts/`. They are kept as source for reading; building them is optional and requires the RISC-V Rust toolchain.
 
+## Running the Week 3 exercises
+
+The Week 3 tokens-and-composability package uses the same `--experimental-strip-types` Node setup.
+
+```bash
+cd week3/tokens-composability
+npm install
+npm test
+```
+
+The exercise entry points are:
+
+- `09-xudt-tokens.ts`
+- `10-spore-nfts.ts`
+- `11-omnilock-wallet.ts`
+- `12-composability-patterns.ts`
+- `13-cell-management.ts`
+
+## Running the Week 4 exercises
+
+The Week 4 infrastructure package uses the same `--experimental-strip-types` Node setup. The exercises run with no funded state and degrade gracefully when offline.
+
+```bash
+cd week4/infrastructure
+npm install
+npm test
+```
+
+The exercise entry points are:
+
+- `14-rpc-dashboard.ts`
+- `15-full-node.ts`
+- `16-light-client.ts`
+
+Each exercise has an optional live path behind an environment variable: `14-rpc-dashboard.ts` queries the public testnet RPC by default (set `CKB_RUN_RPC_LIVE=0` to force pure dry-run), `15-full-node.ts` reads a local node when `CKB_RUN_NODE_LIVE=1`, and `16-light-client.ts` probes a local `ckb-light-client` when `CKB_RUN_LIGHT_LIVE=1`.
+
 ## Documentation workflow
 
 The hosted docs are the main public record of this learning process.

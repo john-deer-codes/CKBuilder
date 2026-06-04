@@ -1,0 +1,82 @@
+---
+title: "Trust Is a Storage Decision"
+description: "Week 4 on CKB: the RPC dashboard, full node, and light client as three points on one spectrum where how much you trust the chain is something you choose."
+icon: "scale"
+---
+
+# Trust Is a Storage Decision
+
+Week 4 is the infrastructure week, and at first it looks like three unrelated chores: query an RPC, run a node, build a light client. It is not three chores. It is one slider, looked at from three positions.
+
+If Week 3 made the case that assets on CKB are cells rather than entries in someone else's map, Week 4 asks the next question: when your app reads those cells, who do you believe, and what does believing them cost you? The RPC dashboard talks to a node and takes its word. The full node takes no one's word and pays ~500 GB for the privilege. The light client takes proof-of-work's word, verifies the math itself, and fits in a browser tab. Those are not three different technologies. They are three settings on the same dial.
+
+That is the thesis for the week:
+
+`On CKB, how much you trust the chain is something you choose, not something you inherit.`
+
+## The spectrum is the whole point, not a footnote
+
+BLUF: trust and storage trade off against each other, and CKB makes you put your finger on exactly where you sit.
+
+Line up the options and the gradient is obvious:
+
+- archive full node — 300+ GB, keeps all history, trusts nothing
+- pruned full node — 100+ GB, verifies everything, forgets old detail
+- light client — under 1 MB, verifies proof-of-work, indexes only what you register
+- stateless client — roughly 0, verifies on demand
+
+The jump from a full node to a light client is a reduction of more than 100,000x in storage. That number is not trivia. It is the price of a decision: a full node re-derives the truth from first principles, and a light client borrows most of that work from math while keeping just enough to catch a lie.
+
+On Solana, you rarely make this decision consciously. You point your app at a Helius or QuickNode endpoint and move on. The trust is real, it is just invisible — you inherited it the moment you pasted the URL. CKB does not hide the slider. Week 4 is three exercises about being honest about where you set it.
+
+## An RPC means trusting a node you are talking to
+
+BLUF: the RPC is the maximal-convenience, maximal-trust end of the dial, and the only mistake is forgetting that is what it is.
+
+`week4/infrastructure/14-rpc-dashboard.ts` builds a monitoring dashboard on raw JSON-RPC 2.0: the request envelope, the hex `0x` integers you must run through `BigInt` because a JSON number cannot hold a 64-bit value, the method families (chain, pool, indexer, net, stats), and the workhorse calls — `get_tip_header`, `get_block_by_number`, `get_transaction`, `get_live_cell`, and `get_cells_capacity` to turn a lock script into a balance.
+
+It is genuinely convenient. The CCC client is a thin layer over exactly these calls, and a public testnet endpoint answers chain, pool, indexer, and stats queries with no node of your own. The exercise leans into that: it runs live against the public testnet by default and degrades to embedded sample data when offline.
+
+But convenience is the tell. When `get_cells_capacity` returns a balance, you are not verifying that balance — you are trusting that whoever runs the node computed it honestly and is not feeding you a stale or selective view. On Ethereum, this is the Infura question everyone eventually asks. On Solana, it is the same question, usually unasked. The RPC is the right tool constantly; it is just not the same thing as knowing.
+
+One detail from building the exercise is worth saying out loud, because it is exactly the kind of thing trusting prose over data hides: the lesson describes the packed `epoch` field as number-then-index-then-length from the high bits down. Decode a real testnet header that way and the block index comes out larger than the epoch length, which is impossible. CKB actually packs the epoch number in the low 24 bits, the index in the next 16, and the length in the next 16. The live data settles it. That is the whole argument in miniature: an RPC will hand you bytes, but you still have to know how to read them.
+
+## A full node trusts nothing and stores everything
+
+BLUF: the full node is the opposite end of the dial — it believes no one, so it has to keep and re-check everything.
+
+`week4/infrastructure/15-full-node.ts` models the operations rather than the bytes, the way Week 3 modeled cell management instead of just calling APIs. It lays out the node-type tradeoff table, generates a hardened `ckb.toml` with the security notes living next to the values they justify, and interprets `sync_state` and `local_node_info` to answer the only two questions that matter: are you caught up, and do you have enough peers.
+
+The shape of a full node is the shape of its promise. It runs CKB-VM on every script in every block, so it can tell you a transaction is valid because it watched it be valid — not because someone said so. That promise costs ~500 GB and a day or two of initial sync. The config is a security surface precisely because the node is now the source of truth: the RPC port stays bound to `127.0.0.1`, the p2p port stays public, and the Debug module comes out before mainnet so the node does not narrate its internals to strangers.
+
+This is the Bitcoin "verify, don't trust" ethos, ported to a chain where verification means running scripts rather than just checking signatures. It is the most expensive setting on the dial, and for a protocol that settles real value, it is often the only honest one. You are no longer trusting an RPC. You are the RPC.
+
+## A light client trusts math and stores almost nothing
+
+BLUF: the light client is the interesting end of the dial, because it gets most of a full node's certainty for almost none of its storage — by trusting a proof instead of a node.
+
+`week4/infrastructure/16-light-client.ts` walks the storage spectrum, the FlyClient sampling argument, and the `set_scripts` / `get_scripts` / `get_cells` flow. The headline is FlyClient: instead of downloading every header the way classic SPV does, you sample O(log n) logarithmically spaced headers and check the proof-of-work and Merkle Mountain Range commitments at each. Fourteen million headers collapse to roughly thirty-seven. CKB's NC-Max consensus makes the sampling tight because difficulty adjusts every ~4-hour epoch and the MMR root is native to the header instead of bolted on.
+
+The trust here is qualitatively different. A light client does not believe a node because the node is friendly; it accepts a cell because the cell arrives with a Merkle proof that checks against headers the client verified itself against the heaviest chain. That is why it can do real things — check balances, send transactions, confirm a cell exists — in under a megabyte.
+
+It is also why the limits are sharp, and worth stating plainly so nobody mistakes a light client for a small full node. It cannot list an address's full history, cannot answer for a script you never registered, cannot serve other clients, and cannot run scripts. And the one operational trap is structural: `set_scripts` replaces the entire watch list on every call, so registering a new lock without first reading the existing list and merging silently un-watches everything else. The exercise models that merge — keeping each already-synced script's progress rather than forcing a re-sync — because getting it wrong is the most common way a light client app quietly goes blind.
+
+Bitcoin and Ethereum have been circling this idea for years — BIP37 SPV, the FlyClient research, Helios on the EVM side. CKB's contribution is that the consensus was designed with the light client in mind, so trusting math instead of a node is a first-class setting rather than a retrofit.
+
+## Three programs, one decision
+
+Week 4 is not a tour of CKB plumbing. It is one decision shown three ways:
+
+- the RPC dashboard says you can trust a node you talk to, cheaply, as long as you know that is what you are doing
+- the full node says you can trust nothing and verify everything, if you will pay ~500 GB for it
+- the light client says you can trust proof-of-work math and store ~1 MB, as long as you stay inside what you registered
+
+The reason this is a CKB story and not a generic infrastructure story is that CKB hands you the whole dial and refuses to pick for you. On most chains the answer is decided upstream — you get the endpoint your framework defaults to, and the trust comes bundled. Here, "how sure do I need to be, and what will that cost" is an explicit design input, the same way the transaction shape became a design input in Week 3.
+
+To make that concrete, read the three local scripts in order:
+
+- `week4/infrastructure/14-rpc-dashboard.ts`
+- `week4/infrastructure/15-full-node.ts`
+- `week4/infrastructure/16-light-client.ts`
+
+Read top to bottom, they keep returning to the same question from cheaper-and-more-trusting to costlier-and-more-certain. That progression is the point. On CKB, the amount of trust you extend to the chain is a slider with a real price tag — and Week 4 is about learning to set it on purpose.

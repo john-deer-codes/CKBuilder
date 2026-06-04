@@ -40,6 +40,12 @@
             "pages": [
               "week-3/protocols-dont-own-assets-cells-do"
             ]
+          },
+          {
+            "group": "Week 4",
+            "pages": [
+              "week-4/trust-is-a-storage-decision"
+            ]
           }
         ]
       }
